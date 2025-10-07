@@ -3,7 +3,7 @@ import pandas as pd
 from financial_risk import get_company_data
 
 st.set_page_config(page_title="Financial Risk Dashboard", page_icon="📊", layout="wide")
-st.title("📊 Company Financial Risk Dashboard (No API)")
+st.title("Company Financial Risk Dashboard")
 st.caption("Data source: StockAnalysis.com (Real-time scraping)")
 
 # User input
@@ -34,3 +34,4 @@ if symbol:
         st.error("❌ No financial data found. Please check if the ticker symbol is correct.")
 else:
     st.info("Please enter a company ticker to start.")
+
