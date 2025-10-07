@@ -2,12 +2,12 @@ import pandas as pd
 import requests
 from io import StringIO
 
-# 🧭 顯示完整 DataFrame
+# 🧭 Display full DataFrame
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
-# 🎯 目標財務指標
+# 🎯 Target financial metrics
 TARGET_KEYWORDS = {
     "Debt": "Debt / Equity Ratio",
     "Free Cash Flow": "Free Cash Flow (Millions)",
@@ -16,21 +16,20 @@ TARGET_KEYWORDS = {
     "Inventory Turnover": "Inventory Turnover"
 }
 
-
 # -------------------------------------------------------
-# 抓取指定公司在不同報表頁面的資料
+# Fetch data table from StockAnalysis for a specific company and financial page
 # -------------------------------------------------------
 def fetch_table(symbol, page):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
-    # 判斷網址結構（國際股票有前綴）
+    # Determine URL structure (some international stocks have prefixes)
     if ":" in symbol:
         exchange, code = symbol.split(":")
         base_url = f"https://stockanalysis.com/quote/{exchange.lower()}/{code.lower()}/financials"
     else:
         base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/financials"
 
-    # 嘗試不同的報表頻率
+    # Try different reporting periods
     periods = ["quarterly", "semi-annual", "annual"]
 
     for period in periods:
@@ -52,7 +51,7 @@ def fetch_table(symbol, page):
 
 
 # -------------------------------------------------------
-# 組合多個表格並抽取關鍵財務指標
+# Combine multiple tables and extract target financial metrics
 # -------------------------------------------------------
 def get_company_data(symbol):
     pages = ["ratios", "cash-flow-statement", "balance-sheet", ""]
@@ -67,13 +66,13 @@ def get_company_data(symbol):
                 detected_period = period
 
     if not dfs:
-        print(f"⚠️ 沒找到 {symbol} 的財報資料。")
+        print(f"⚠️ No financial data found for {symbol}.")
         return None, None
 
-    print(f"\n📅 使用的報表頻率：{detected_period.upper()}")
+    print(f"\n📅 Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
 
-    # 🎯 根據關鍵字模糊比對
+    # 🎯 Fuzzy match target keywords
     selected_rows = pd.DataFrame()
     for keyword, label in TARGET_KEYWORDS.items():
         match = combined[combined.iloc[:, 0].astype(str).str.contains(keyword, case=False, na=False)]
@@ -83,10 +82,10 @@ def get_company_data(symbol):
         else:
             print(f"⚠️ Not found on site: {label}")
 
-    # 🧾 轉橫向
+    # 🧾 Transpose the table
     selected_rows = selected_rows.set_index(selected_rows.columns[0]).T
 
-    # 🧮 若有 Inventory Turnover，自動新增 Days Working Capital = 365 / turnover
+    # 🧮 If Inventory Turnover exists, calculate Days Working Capital = 365 / turnover
     if "Inventory Turnover" in selected_rows.columns:
         inv_turn = pd.to_numeric(selected_rows["Inventory Turnover"], errors="coerce")
         selected_rows["Days Working Capital (calculated)"] = (365 / inv_turn).round(2)
@@ -96,19 +95,19 @@ def get_company_data(symbol):
 
 
 # -------------------------------------------------------
-# 主執行區：可連續查詢多家公司
+# CLI mode (disabled when running on Streamlit)
 # -------------------------------------------------------
-#print("💡 輸入公司代號查財務指標，例如 AA, AAPL, TSLA")
-#print("輸入 q 或 exit 離開程式\n")
+# print("💡 Enter a company ticker to get financial metrics, e.g., AA, AAPL, TSLA")
+# print("Type q or exit to quit.\n")
 
-#while True:
- #   company = input("請輸入公司代號：").strip().upper()
-  #  if company in ["Q", "EXIT"]:
-   #     print("👋 離開程式，再見！")
-    #    break
-
-    #df, period = get_company_data(company)
-    #if df is not None:
-     #   print(f"\n📊 {company} ({period.upper()}) Summary:\n")
-      #  print(df.head(5))
-       # print("\n" + "-" * 80 + "\n")
+# while True:
+#     company = input("Enter company ticker: ").strip().upper()
+#     if company in ["Q", "EXIT"]:
+#         print("👋 Exiting program. Goodbye!")
+#         break
+#
+#     df, period = get_company_data(company)
+#     if df is not None:
+#         print(f"\n📊 {company} ({period.upper()}) Summary:\n")
+#         print(df.head(5))
+#         print("\n" + "-" * 80 + "\n")
