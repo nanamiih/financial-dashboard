@@ -21,17 +21,37 @@ if symbol:
 
         # Safely extract and display key metrics if available
         cols = list(df.columns)
+        
+        # Helper function: pick latest or 2nd latest valid value
+        def get_latest_value(column):
+            series = pd.to_numeric(df[column], errors="coerce").dropna()
+            if len(series) == 0:
+                return None
+            elif len(series) == 1:
+                return series.iloc[0]
+            else:
+                # take the first value (newest) instead of last
+                return series.iloc[0]  # or use .iloc[1] if you want 2nd newest
+
+        # Display metrics
         if "Debt / Equity Ratio" in cols:
-            val = pd.to_numeric(df["Debt / Equity Ratio"], errors="coerce").dropna().iloc[-1]
-            st.metric("Debt / Equity Ratio", f"{val:.2f}")
+            val = get_latest_value("Debt / Equity Ratio")
+            if val is not None:
+                st.metric("Debt / Equity Ratio", f"{val:.2f}")
+
         if "Inventory Turnover" in cols:
-            val = pd.to_numeric(df["Inventory Turnover"], errors="coerce").dropna().iloc[-1]
-            st.metric("Inventory Turnover", f"{val:.2f}")
+            val = get_latest_value("Inventory Turnover")
+            if val is not None:
+                st.metric("Inventory Turnover", f"{val:.2f}")
+
         if "Free Cash Flow (Millions)" in cols:
-            val = pd.to_numeric(df["Free Cash Flow (Millions)"], errors="coerce").dropna().iloc[-1]
-            st.metric("Free Cash Flow (M)", f"${val:,.0f}")
+            val = get_latest_value("Free Cash Flow (Millions)")
+            if val is not None:
+                st.metric("Free Cash Flow (M)", f"${val:,.0f}")
+
     else:
         st.error("❌ No financial data found. Please check if the ticker symbol is correct.")
 else:
     st.info("Please enter a company ticker to start.")
+
 
