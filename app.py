@@ -4,21 +4,22 @@ from financial_risk import get_company_data
 
 st.set_page_config(page_title="Financial Risk Dashboard", page_icon="📊", layout="wide")
 st.title("📊 Company Financial Risk Dashboard (No API)")
-st.caption("資料來源：StockAnalysis.com（即時爬取）")
+st.caption("Data source: StockAnalysis.com (Real-time scraping)")
 
-symbol = st.text_input("輸入公司代號（例如：AA, AAPL, TSLA, RIO）").strip().upper()
+# User input
+symbol = st.text_input("Enter company ticker (e.g., AA, AAPL, TSLA, RIO)").strip().upper()
 
 if symbol:
-    with st.spinner("抓取資料中..."):
+    with st.spinner("Fetching data..."):
         df, period = get_company_data(symbol)
 
     if df is not None and not df.empty:
-        st.success(f"✅ {symbol} 財報資料 ({period.upper()})")
+        st.success(f"✅ {symbol} financial data retrieved ({period.upper()})")
 
-        # 顯示整張表格（保證不報錯）
+        # Show entire table
         st.dataframe(df, use_container_width=True)
 
-        # 如果資料方向正確，再安全取出指標
+        # Safely extract and display key metrics if available
         cols = list(df.columns)
         if "Debt / Equity Ratio" in cols:
             val = pd.to_numeric(df["Debt / Equity Ratio"], errors="coerce").dropna().iloc[-1]
@@ -30,6 +31,6 @@ if symbol:
             val = pd.to_numeric(df["Free Cash Flow (Millions)"], errors="coerce").dropna().iloc[-1]
             st.metric("Free Cash Flow (M)", f"${val:,.0f}")
     else:
-        st.error("❌ 找不到公司資料，請確認代號是否正確。")
+        st.error("❌ No financial data found. Please check if the ticker symbol is correct.")
 else:
-    st.info("請輸入公司代號開始查詢。")
+    st.info("Please enter a company ticker to start.")
