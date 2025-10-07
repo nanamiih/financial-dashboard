@@ -98,17 +98,17 @@ def get_company_data(symbol):
 # -------------------------------------------------------
 # 主執行區：可連續查詢多家公司
 # -------------------------------------------------------
-print("💡 輸入公司代號查財務指標，例如 AA, AAPL, TSLA")
-print("輸入 q 或 exit 離開程式\n")
+#print("💡 輸入公司代號查財務指標，例如 AA, AAPL, TSLA")
+#print("輸入 q 或 exit 離開程式\n")
 
-while True:
-    company = input("請輸入公司代號：").strip().upper()
-    if company in ["Q", "EXIT"]:
-        print("👋 離開程式，再見！")
-        break
+#while True:
+ #   company = input("請輸入公司代號：").strip().upper()
+  #  if company in ["Q", "EXIT"]:
+   #     print("👋 離開程式，再見！")
+    #    break
 
-    df, period = get_company_data(company)
-    if df is not None:
-        print(f"\n📊 {company} ({period.upper()}) Summary:\n")
-        print(df.head(6))
-        print("\n" + "-" * 80 + "\n")
+    #df, period = get_company_data(company)
+    #if df is not None:
+     #   print(f"\n📊 {company} ({period.upper()}) Summary:\n")
+      #  print(df.head(5))
+       # print("\n" + "-" * 80 + "\n")
