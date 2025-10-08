@@ -2,12 +2,12 @@ import pandas as pd
 import requests
 from io import StringIO
 
-# 🧭 Display full DataFrame
+# Display full DataFrame
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
-# 🎯 Target financial metrics
+# Target financial metrics
 TARGET_KEYWORDS = {
     "Debt": "Debt / Equity Ratio",
     "Free Cash Flow": "Free Cash Flow (Millions)",
@@ -69,10 +69,10 @@ def get_company_data(symbol):
         print(f"⚠️ No financial data found for {symbol}.")
         return None, None
 
-    print(f"\n📅 Reporting frequency used: {detected_period.upper()}")
+    print(f"\n Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
 
-    # 🎯 Fuzzy match target keywords
+    #  Fuzzy match target keywords
     selected_rows = pd.DataFrame()
     for keyword, label in TARGET_KEYWORDS.items():
         match = combined[combined.iloc[:, 0].astype(str).str.contains(keyword, case=False, na=False)]
@@ -82,10 +82,10 @@ def get_company_data(symbol):
         else:
             print(f"⚠️ Not found on site: {label}")
 
-    # 🧾 Transpose the table
+    # Transpose the table
     selected_rows = selected_rows.set_index(selected_rows.columns[0]).T
 
-    # 🧮 If Inventory Turnover exists, calculate Days Working Capital = 365 / turnover
+    # If Inventory Turnover exists, calculate Days Working Capital = 365 / turnover
     if "Inventory Turnover" in selected_rows.columns:
         inv_turn = pd.to_numeric(selected_rows["Inventory Turnover"], errors="coerce")
         selected_rows["Days Working Capital (calculated)"] = (365 / inv_turn).round(2)
@@ -111,3 +111,4 @@ def get_company_data(symbol):
 #         print(f"\n📊 {company} ({period.upper()}) Summary:\n")
 #         print(df.head(5))
 #         print("\n" + "-" * 80 + "\n")
+
