@@ -10,7 +10,11 @@ pd.set_option('display.max_colwidth', None)
 # Target financial metrics
 TARGET_KEYWORDS = {
     "Debt": "Debt / Equity Ratio",
-    "EPS (Diluted)": "Earnings per Share (Diluted)",   
+# EPS (Diluted) — add multiple aliases so any spelling works
+    "EPS (Diluted)": "Earnings per Share (Diluted)",
+    "Diluted EPS": "Earnings per Share (Diluted)",
+    "EPS Diluted": "Earnings per Share (Diluted)",
+    "Earnings per Share (Diluted)": "Earnings per Share (Diluted)",   
     "Current Ratio": "Current Ratio",
     "EBITDA": "EBITDA",
     "Inventory Turnover": "Inventory Turnover"
@@ -31,20 +35,26 @@ def fetch_table(symbol, page):
 
     # Try different reporting periods
     periods = ["quarterly", "semi-annual", "annual"]
+    
+    collected = []
+    first_period = None
 
     for period in periods:
         url = f"{base_url}/{page}/?p={period}" if page else f"{base_url}/?p={period}"
         try:
-            r = requests.get(url, headers=headers)
+            r = requests.get(url, headers=headers, timeout=30)
             r.raise_for_status()
             tables = pd.read_html(StringIO(r.text))
             if tables and not tables[0].empty:
-                print(f"✅ Got table from {url}")
-                return tables[0], period
-            else:
-                print(f"⚠️ No data found on {url}, trying next period...")
+                if first_period is None:
+                    first_period = period
+                collected.append(tables[0])
         except Exception as e:
             print(f"⚠️ Failed to fetch {url}: {e}")
+
+    if collected:
+        # 把不同 period 的表格縱向合併
+        return pd.concat(collected, ignore_index=True), first_period
 
     print(f"❌ All periods failed for {symbol}.")
     return None, None
@@ -54,7 +64,7 @@ def fetch_table(symbol, page):
 # Combine multiple tables and extract target financial metrics
 # -------------------------------------------------------
 def get_company_data(symbol):
-    pages = ["ratios", "cash-flow-statement", "balance-sheet", ""]
+    pages = ["ratios", "cash-flow-statement", "balance-sheet","income-statement", ""]
     dfs = []
     detected_period = None
 
@@ -106,6 +116,7 @@ def get_company_data(symbol):
 #         print(f"\n📊 {company} ({period.upper()}) Summary:\n")
 #         print(df.head(5))
 #         print("\n" + "-" * 80 + "\n")
+
 
 
 
