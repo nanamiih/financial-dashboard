@@ -10,7 +10,7 @@ pd.set_option('display.max_colwidth', None)
 # Target financial metrics
 TARGET_KEYWORDS = {
     "Debt": "Debt / Equity Ratio",
-    "EPS (Diluted)": "Earnings per Share (Diluted)",   
+    "Diluted EPS": "Earnings per Share (Diluted)",   
     "Current Ratio": "Current Ratio" ,
     "EBITDA": "EBITDA",
     "Inventory Turnover": "Inventory Turnover"
@@ -106,6 +106,7 @@ def get_company_data(symbol):
 #         print(f"\n📊 {company} ({period.upper()}) Summary:\n")
 #         print(df.head(5))
 #         print("\n" + "-" * 80 + "\n")
+
 
 
 
