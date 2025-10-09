@@ -43,15 +43,24 @@ if symbol:
             val = get_latest_value("Inventory Turnover")
             if val is not None:
                 st.metric("Inventory Turnover", f"{val:.2f}")
-
-        if "Free Cash Flow (Millions)" in cols:
-            val = get_latest_value("Free Cash Flow (Millions)")
+    
+        # Diluted EPS
+        if "Earnings per Share (Diluted)" in cols:
+            val = get_latest_value("Earnings per Share (Diluted)")
             if val is not None:
-                st.metric("Free Cash Flow (M)", f"${val:,.0f}")
+                st.metric("EPS (Diluted)", f"{val:.2f}")
+        
+        # Current Ratio
+        if "Current Ratio" in cols:
+            val = get_latest_value("Current Ratio")
+            if val is not None:
+                st.metric("Current Ratio", f"{val:.2f}")
+
 
     else:
         st.error("❌ No financial data found. Please check if the ticker symbol is correct.")
 else:
     st.info("Please enter a company ticker to start.")
+
 
 
