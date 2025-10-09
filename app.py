@@ -6,7 +6,7 @@ from financial_risk import get_company_data
 # Streamlit Page Configuration
 # -----------------------------
 st.set_page_config(page_title="Financial Risk Dashboard", page_icon="📊", layout="wide")
-st.title("📊 Company Financial Risk Dashboard (No API)")
+st.title("Company Financial Risk Dashboard")
 st.caption("Data source: StockAnalysis.com (Real-time scraping)")
 
 # -----------------------------
@@ -77,3 +77,4 @@ if symbol:
 
 else:
     st.info("Please enter a company ticker to start.")
+
