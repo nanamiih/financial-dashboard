@@ -45,10 +45,11 @@ if symbol:
                 st.metric("Inventory Turnover", f"{val:.2f}")
     
         # Diluted EPS
-        if "EPS (Diluted)" in cols:
-            val = get_latest_value("Earnings per Share (Diluted)")
-            if val is not None:
-                st.metric("EPS (Diluted)", f"{val:.2f}")
+       if "Earnings per Share (Diluted)" in cols:
+        val = get_latest_value("Earnings per Share (Diluted)")
+        if val is not None:
+            st.metric("EPS (Diluted)", f"{val:.2f}")
+
         
         # Current Ratio
         if "Current Ratio" in cols:
@@ -61,6 +62,7 @@ if symbol:
         st.error("❌ No financial data found. Please check if the ticker symbol is correct.")
 else:
     st.info("Please enter a company ticker to start.")
+
 
 
 
