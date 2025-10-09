@@ -81,6 +81,11 @@ def get_company_data(symbol):
 
     print(f"\n Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
+    
+    # Debug: check what items were fetched
+    print("✅ Combined table fetched. Preview of first 50 items:")
+    print(combined.iloc[:, 0].dropna().astype(str).head(50).to_list())
+
 
     #  Fuzzy match target keywords
     selected_rows = pd.DataFrame()
@@ -116,6 +121,7 @@ def get_company_data(symbol):
 #         print(f"\n📊 {company} ({period.upper()}) Summary:\n")
 #         print(df.head(5))
 #         print("\n" + "-" * 80 + "\n")
+
 
 
 
