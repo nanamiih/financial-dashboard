@@ -3,7 +3,7 @@ import pandas as pd
 from financial_risk import get_company_data, get_scores
 
 st.set_page_config(page_title="Financial Risk Dashboard", page_icon="📊", layout="wide")
-st.title("📊 Company Financial Risk Dashboard (No API)")
+st.title("Company Financial Risk Dashboard (No API)")
 st.caption("Data source: StockAnalysis.com (Real-time scraping)")
 
 symbol = st.text_input("Enter company ticker (e.g., AA, RIO, OSL:NHY)").strip().upper()
@@ -54,7 +54,7 @@ if symbol:
 
         # Show Z-Score and F-Score
         if z or f:
-            st.subheader("📊 Company Risk Scores")
+            st.subheader("Company Risk Scores")
             score_cols = st.columns(2)
             if z:
                 z = float(z)
@@ -67,3 +67,4 @@ if symbol:
         st.error("❌ No financial data found. Please check the ticker symbol.")
 else:
     st.info("Please enter a company ticker to start.")
+
