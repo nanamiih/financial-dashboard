@@ -10,14 +10,15 @@ pd.set_option('display.max_colwidth', None)
 # Target financial metrics
 TARGET_KEYWORDS = {
     "Debt": "Debt / Equity Ratio",
-# EPS (Diluted) — add multiple aliases so any spelling works
     "EPS (Diluted)": "Earnings per Share (Diluted)",
     "Diluted EPS": "Earnings per Share (Diluted)",
     "EPS Diluted": "Earnings per Share (Diluted)",
-    "Earnings per Share (Diluted)": "Earnings per Share (Diluted)",   
+    "Earnings per Share (Diluted)": "Earnings per Share (Diluted)",
     "Current Ratio": "Current Ratio",
     "EBITDA": "EBITDA",
-    "Inventory Turnover": "Inventory Turnover"
+    "Inventory Turnover": "Inventory Turnover",
+    "Free Cash Flow": "Free Cash Flow (Millions)",
+    "Net Income": "Net Income (Millions)"
 }
 
 # -------------------------------------------------------
@@ -26,18 +27,14 @@ TARGET_KEYWORDS = {
 def fetch_table(symbol, page):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
-    # Determine URL structure (some international stocks have prefixes)
     if ":" in symbol:
         exchange, code = symbol.split(":")
         base_url = f"https://stockanalysis.com/quote/{exchange.lower()}/{code.lower()}/financials"
     else:
         base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/financials"
 
-    # Try different reporting periods
     periods = ["quarterly", "semi-annual", "annual"]
-    
-    collected = []
-    first_period = None
+    collected, first_period = [], None
 
     for period in periods:
         url = f"{base_url}/{page}/?p={period}" if page else f"{base_url}/?p={period}"
@@ -53,7 +50,6 @@ def fetch_table(symbol, page):
             print(f"⚠️ Failed to fetch {url}: {e}")
 
     if collected:
-        # 把不同 period 的表格縱向合併
         return pd.concat(collected, ignore_index=True), first_period
 
     print(f"❌ All periods failed for {symbol}.")
@@ -61,12 +57,11 @@ def fetch_table(symbol, page):
 
 
 # -------------------------------------------------------
-# Combine multiple tables and extract target financial metrics
+# Combine multiple tables and extract target metrics
 # -------------------------------------------------------
 def get_company_data(symbol):
-    pages = ["ratios", "cash-flow-statement", "balance-sheet","income-statement", ""]
-    dfs = []
-    detected_period = None
+    pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", ""]
+    dfs, detected_period = [], None
 
     for page in pages:
         df, period = fetch_table(symbol, page)
@@ -79,15 +74,13 @@ def get_company_data(symbol):
         print(f"⚠️ No financial data found for {symbol}.")
         return None, None
 
-    print(f"\n Reporting frequency used: {detected_period.upper()}")
+    print(f"\n📅 Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
-    
-    # Debug: check what items were fetched
+
+    # Debug: check fetched items
     print("✅ Combined table fetched. Preview of first 50 items:")
     print(combined.iloc[:, 0].dropna().astype(str).head(50).to_list())
 
-
-    #  Fuzzy match target keywords
     selected_rows = pd.DataFrame()
     for keyword, label in TARGET_KEYWORDS.items():
         match = combined[combined.iloc[:, 0].astype(str).str.contains(keyword, case=False, na=False)]
@@ -97,35 +90,28 @@ def get_company_data(symbol):
         else:
             print(f"⚠️ Not found on site: {label}")
 
-    # Transpose the table
     selected_rows = selected_rows.set_index(selected_rows.columns[0]).T
-
     print(f"✅ Extracted {len(selected_rows.columns)} metrics.")
     return selected_rows, detected_period
 
 
 # -------------------------------------------------------
-# CLI mode (disabled when running on Streamlit)
+# Extra: fetch Altman Z-Score and Piotroski F-Score
 # -------------------------------------------------------
-# print("💡 Enter a company ticker to get financial metrics, e.g., AA, AAPL, TSLA")
-# print("Type q or exit to quit.\n")
-
-# while True:
-#     company = input("Enter company ticker: ").strip().upper()
-#     if company in ["Q", "EXIT"]:
-#         print("👋 Exiting program. Goodbye!")
-#         break
-#
-#     df, period = get_company_data(company)
-#     if df is not None:
-#         print(f"\n📊 {company} ({period.upper()}) Summary:\n")
-#         print(df.head(5))
-#         print("\n" + "-" * 80 + "\n")
-
-
-
-
-
-
-
-
+def get_scores(symbol):
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
+    try:
+        r = requests.get(base_url, headers=headers, timeout=30)
+        r.raise_for_status()
+        tables = pd.read_html(StringIO(r.text))
+        for t in tables:
+            if "Altman Z-Score" in t.to_string():
+                df = t.set_index(t.columns[0])
+                z = df.loc["Altman Z-Score"].values[0]
+                f = df.loc["Piotroski F-Score"].values[0]
+                return z, f
+        return None, None
+    except Exception as e:
+        print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
+        return None, None
