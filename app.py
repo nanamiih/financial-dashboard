@@ -75,14 +75,14 @@ if symbol:
             st.caption("Z < 1.8 → high bankruptcy risk; 1.8–3 = moderate; >3 = safe.")
 
         # =====================================================
-        # ✅ EXPORT SECTION — For Power BI or Download
+        # ✅ EXPORT ONE EXCEL FILE (Financials + Scores)
         # =====================================================
         # Reset index and rename first column as Date
         df_reset = df.reset_index()
         if df_reset.columns[0] != "Date":
             df_reset.rename(columns={df_reset.columns[0]: "Date"}, inplace=True)
 
-        # Create one-row scores table
+        # One-row scores table
         score_df = pd.DataFrame({
             "Ticker": [symbol],
             "Altman Z-Score": [z if z else None],
@@ -90,16 +90,14 @@ if symbol:
             "Exported At": [pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")]
         })
 
-        # Excel export (financials + scores)
+        # Export to single Excel buffer
         excel_buffer = BytesIO()
         with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
             df_reset.to_excel(writer, sheet_name=f"{symbol}_financials", index=False)
             score_df.to_excel(writer, sheet_name="Scores", index=False)
         excel_buffer.seek(0)
 
-        # CSV export (only scores)
-        csv_buffer = score_df.to_csv(index=False).encode("utf-8")
-
+        # Streamlit download button
         st.download_button(
             label="📊 Download Excel (Financials + Scores)",
             data=excel_buffer,
@@ -107,14 +105,7 @@ if symbol:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        st.download_button(
-            label="📈 Download Scores Only (CSV)",
-            data=csv_buffer,
-            file_name=f"{symbol}_scores.csv",
-            mime="text/csv"
-        )
-
-        st.success("✅ Files ready for Power BI integration!")
+        st.success("✅ Excel file ready — load it directly into Power BI!")
 
     else:
         st.error("❌ No financial data found. Please check the ticker symbol.")
