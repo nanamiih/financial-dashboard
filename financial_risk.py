@@ -60,7 +60,7 @@ def fetch_table(symbol, page):
 # Combine multiple tables and extract target metrics
 # -------------------------------------------------------
 def get_company_data(symbol):
-    pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", ""]
+    pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
     dfs, detected_period = [], None
 
     for page in pages:
@@ -115,3 +115,4 @@ def get_scores(symbol):
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
