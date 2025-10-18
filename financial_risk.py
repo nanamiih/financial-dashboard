@@ -100,26 +100,32 @@ def get_company_data(symbol):
 # -------------------------------------------------------
 # Extra: fetch Altman Z-Score and Piotroski F-Score
 # -------------------------------------------------------
+import re
+import requests
+from io import StringIO
+import pandas as pd
+
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
+    base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
     try:
-        r = requests.get(url, headers=headers, timeout=30)
+        r = requests.get(base_url, headers=headers, timeout=30)
         r.raise_for_status()
-        # 找出內嵌的 window.__DATA__ JSON
-        match = re.search(r"window\.__DATA__\s*=\s*(\{.*?\});", r.text)
-        if not match:
-            print(f"⚠️ JSON block not found for {symbol}")
-            return None, None
+        html = r.text
 
-        data = json.loads(match.group(1))
-        z = data.get("statistics", {}).get("AltmanZScore")
-        f = data.get("statistics", {}).get("PiotroskiFScore")
-        return z, f
+        # 使用正則直接找出分數
+        z_match = re.search(r"Altman Z-Score[^0-9]*([\d.]+)", html)
+        f_match = re.search(r"Piotroski F-Score[^0-9]*([\d.]+)", html)
+
+        z_score = float(z_match.group(1)) if z_match else None
+        f_score = float(f_match.group(1)) if f_match else None
+        return z_score, f_score
 
     except Exception as e:
-        print(f"⚠️ Failed to fetch Z/F-score for {symbol}: {e}")
+        print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
+
 
 
 
