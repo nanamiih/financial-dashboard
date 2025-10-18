@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from financial_risk import get_company_data, get_scores
+import re
 
 # -------------------------------
 # Streamlit Page Configuration
@@ -77,12 +78,10 @@ if symbol:
         # =====================================================
         # ✅ EXPORT ONE EXCEL FILE (Financials + Scores)
         # =====================================================
-        # Reset index and rename first column as Date
         df_reset = df.reset_index()
         if df_reset.columns[0] != "Date":
             df_reset.rename(columns={df_reset.columns[0]: "Date"}, inplace=True)
 
-        # One-row scores table
         score_df = pd.DataFrame({
             "Ticker": [symbol],
             "Altman Z-Score": [z if z else None],
@@ -90,18 +89,19 @@ if symbol:
             "Exported At": [pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")]
         })
 
-        # Export to single Excel buffer
+        # Excel sheet name 清理：移除非法字元
+        safe_symbol = re.sub(r'[^A-Za-z0-9_]', '_', symbol)
+
         excel_buffer = BytesIO()
         with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-            df_reset.to_excel(writer, sheet_name=f"{symbol}_financials", index=False)
+            df_reset.to_excel(writer, sheet_name=f"{safe_symbol}_financials", index=False)
             score_df.to_excel(writer, sheet_name="Scores", index=False)
         excel_buffer.seek(0)
 
-        # Streamlit download button
         st.download_button(
             label="📊 Download Excel (Financials + Scores)",
             data=excel_buffer,
-            file_name=f"{symbol}_financials.xlsx",
+            file_name=f"{safe_symbol}_financials.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
