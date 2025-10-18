@@ -1,13 +1,23 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 from financial_risk import get_company_data, get_scores
 
+# -------------------------------
+# Streamlit Page Configuration
+# -------------------------------
 st.set_page_config(page_title="Financial Risk Dashboard", page_icon="📊", layout="wide")
 st.title("Company Financial Risk Dashboard (No API)")
 st.caption("Data source: StockAnalysis.com (Real-time scraping)")
 
+# -------------------------------
+# User Input
+# -------------------------------
 symbol = st.text_input("Enter company ticker (e.g., AA, RIO, OSL:NHY)").strip().upper()
 
+# -------------------------------
+# Main Logic
+# -------------------------------
 if symbol:
     with st.spinner("Fetching data..."):
         df, period = get_company_data(symbol)
@@ -19,14 +29,14 @@ if symbol:
 
         cols = list(df.columns)
 
-        # Helper function
+        # Helper: get latest value
         def get_latest_value(column):
             series = pd.to_numeric(df[column], errors="coerce").dropna()
             if len(series) == 0:
                 return None
-            return series.iloc[0]  # newest
+            return series.iloc[0]
 
-        # Display key metrics
+        # Display Key Metrics
         if "Debt / Equity Ratio" in cols:
             val = get_latest_value("Debt / Equity Ratio")
             if val is not None:
@@ -52,7 +62,7 @@ if symbol:
             if val is not None:
                 st.metric("EPS (Diluted)", f"{val:.2f}")
 
-        # Show Z-Score and F-Score
+        # Display Scores
         if z or f:
             st.subheader("Company Risk Scores")
             score_cols = st.columns(2)
@@ -63,26 +73,50 @@ if symbol:
             if f:
                 score_cols[1].metric("📘 Piotroski F-Score", f"{f}")
             st.caption("Z < 1.8 → high bankruptcy risk; 1.8–3 = moderate; >3 = safe.")
+
+        # =====================================================
+        # ✅ EXPORT SECTION — For Power BI or Download
+        # =====================================================
+        # Reset index and rename first column as Date
+        df_reset = df.reset_index()
+        if df_reset.columns[0] != "Date":
+            df_reset.rename(columns={df_reset.columns[0]: "Date"}, inplace=True)
+
+        # Create one-row scores table
+        score_df = pd.DataFrame({
+            "Ticker": [symbol],
+            "Altman Z-Score": [z if z else None],
+            "Piotroski F-Score": [f if f else None],
+            "Exported At": [pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")]
+        })
+
+        # Excel export (financials + scores)
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+            df_reset.to_excel(writer, sheet_name=f"{symbol}_financials", index=False)
+            score_df.to_excel(writer, sheet_name="Scores", index=False)
+        excel_buffer.seek(0)
+
+        # CSV export (only scores)
+        csv_buffer = score_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            label="📊 Download Excel (Financials + Scores)",
+            data=excel_buffer,
+            file_name=f"{symbol}_financials.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        st.download_button(
+            label="📈 Download Scores Only (CSV)",
+            data=csv_buffer,
+            file_name=f"{symbol}_scores.csv",
+            mime="text/csv"
+        )
+
+        st.success("✅ Files ready for Power BI integration!")
+
     else:
         st.error("❌ No financial data found. Please check the ticker symbol.")
 else:
     st.info("Please enter a company ticker to start.")
-
-#==============================================
-import io
-
-if df is not None and not df.empty:
-    # 加入 Z-score / F-score 欄位到 DataFrame（只有一列代表最新值）
-    export_df = df.copy()
-    export_df["Altman Z-Score"] = z if z else None
-    export_df["Piotroski F-Score"] = f if f else None
-
-    # 轉成 CSV
-    csv = export_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 Download Data for Power BI (CSV)",
-        data=csv,
-        file_name=f"{symbol}_financials.csv",
-        mime="text/csv"
-    )
-
