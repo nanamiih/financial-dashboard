@@ -107,29 +107,22 @@ import pandas as pd
 
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
+    base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
     try:
-        r = requests.get(url, headers=headers, timeout=30)
+        r = requests.get(base_url, headers=headers, timeout=30)
         r.raise_for_status()
-
-        # 從 script 標籤擷取 window.__DATA__ JSON
-        match = re.search(r"window\.__DATA__\s*=\s*(\{.*?\});", r.text)
-        if not match:
-            print(f"⚠️ No JSON data found for {symbol}")
-            return None, None
-
-        data = json.loads(match.group(1))
-
-        # 安全存取 Z/F score
-        stats = data.get("statistics", {})
-        z = stats.get("AltmanZScore")
-        f = stats.get("PiotroskiFScore")
-
-        return z, f
-
+        tables = pd.read_html(StringIO(r.text))
+        for t in tables:
+            if "Altman Z-Score" in t.to_string():
+                df = t.set_index(t.columns[0])
+                z = df.loc["Altman Z-Score"].values[0]
+                f = df.loc["Piotroski F-Score"].values[0]
+                return z, f
+        return None, None
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
 
 
 
