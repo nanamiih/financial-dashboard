@@ -68,3 +68,21 @@ if symbol:
 else:
     st.info("Please enter a company ticker to start.")
 
+#==============================================
+import io
+
+if df is not None and not df.empty:
+    # 加入 Z-score / F-score 欄位到 DataFrame（只有一列代表最新值）
+    export_df = df.copy()
+    export_df["Altman Z-Score"] = z if z else None
+    export_df["Piotroski F-Score"] = f if f else None
+
+    # 轉成 CSV
+    csv = export_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Download Data for Power BI (CSV)",
+        data=csv,
+        file_name=f"{symbol}_financials.csv",
+        mime="text/csv"
+    )
+
