@@ -137,6 +137,8 @@ def get_scores(symbol):
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+print("DEBUG:", symbol, z, f)
+
 
 
 
