@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from openpyxl import Workbook
 from financial_risk import get_company_data, get_scores
 
 st.set_page_config(page_title="Financial Risk Dashboard", page_icon="📊", layout="wide")
@@ -19,14 +20,14 @@ if symbol:
 
         cols = list(df.columns)
 
-        # Helper function
+        # Helper: get latest value
         def get_latest_value(column):
             series = pd.to_numeric(df[column], errors="coerce").dropna()
             if len(series) == 0:
                 return None
-            return series.iloc[0]  # newest
+            return series.iloc[0]
 
-        # Display key metrics
+        # Key metrics
         if "Debt / Equity Ratio" in cols:
             val = get_latest_value("Debt / Equity Ratio")
             if val is not None:
@@ -52,7 +53,7 @@ if symbol:
             if val is not None:
                 st.metric("EPS (Diluted)", f"{val:.2f}")
 
-        # Show Z-Score and F-Score
+        # Show scores
         if z or f:
             st.subheader("Company Risk Scores")
             score_cols = st.columns(2)
@@ -63,26 +64,19 @@ if symbol:
             if f:
                 score_cols[1].metric("📘 Piotroski F-Score", f"{f}")
             st.caption("Z < 1.8 → high bankruptcy risk; 1.8–3 = moderate; >3 = safe.")
+
+        # -------------------------------
+        # ✅ Export to Excel for Power BI
+        # -------------------------------
+        export_df = df.copy()
+        export_df["Altman Z-Score"] = z if z else None
+        export_df["Piotroski F-Score"] = f if f else None
+
+        output_file = "financial_data.xlsx"
+        export_df.to_excel(output_file, index=False)
+        st.success(f"📊 Excel file exported: {output_file} — You can load it in Power BI!")
+
     else:
         st.error("❌ No financial data found. Please check the ticker symbol.")
 else:
     st.info("Please enter a company ticker to start.")
-
-#==============================================
-import io
-
-if df is not None and not df.empty:
-    # 加入 Z-score / F-score 欄位到 DataFrame（只有一列代表最新值）
-    export_df = df.copy()
-    export_df["Altman Z-Score"] = z if z else None
-    export_df["Piotroski F-Score"] = f if f else None
-
-    # 轉成 CSV
-    csv = export_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 Download Data for Power BI (CSV)",
-        data=csv,
-        file_name=f"{symbol}_financials.csv",
-        mime="text/csv"
-    )
-
