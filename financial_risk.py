@@ -105,6 +105,9 @@ import requests
 from io import StringIO
 import pandas as pd
 
+# -------------------------------------------------------
+# Extra: fetch Altman Z-Score and Piotroski F-Score
+# -------------------------------------------------------
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
@@ -122,6 +125,7 @@ def get_scores(symbol):
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
 
 
 
