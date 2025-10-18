@@ -100,31 +100,45 @@ def get_company_data(symbol):
 # -------------------------------------------------------
 # Extra: fetch Altman Z-Score and Piotroski F-Score
 # -------------------------------------------------------
-import re
-import requests
-from io import StringIO
-import pandas as pd
 
-# -------------------------------------------------------
-# Extra: fetch Altman Z-Score and Piotroski F-Score
-# -------------------------------------------------------
+
 def get_scores(symbol):
+    """
+    Fetch Altman Z-Score and Piotroski F-Score from StockAnalysis statistics page.
+    This method parses the embedded JSON (window.__DATA__) instead of HTML tables.
+    """
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
+    url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
     try:
-        r = requests.get(base_url, headers=headers, timeout=30)
+        r = requests.get(url, headers=headers, timeout=30)
         r.raise_for_status()
-        tables = pd.read_html(StringIO(r.text))
-        for t in tables:
-            if "Altman Z-Score" in t.to_string():
-                df = t.set_index(t.columns[0])
-                z = df.loc["Altman Z-Score"].values[0]
-                f = df.loc["Piotroski F-Score"].values[0]
-                return z, f
-        return None, None
+
+        # 🔍 在 HTML 裡找到內嵌 JSON 區塊
+        match = re.search(r"window\.__DATA__\s*=\s*(\{.*?\});", r.text)
+        if not match:
+            print(f"⚠️ No JSON data found for {symbol}")
+            return None, None
+
+        # 載入 JSON
+        data = json.loads(match.group(1))
+
+        # 從 JSON 抓出統計數據
+        stats = data.get("statistics", {})
+        z = stats.get("AltmanZScore")
+        f = stats.get("PiotroskiFScore")
+
+        if z is None and f is None:
+            print(f"⚠️ Scores not found in JSON for {symbol}")
+        else:
+            print(f"✅ {symbol} → Z={z}, F={f}")
+
+        return z, f
+
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
+
 
 
 
