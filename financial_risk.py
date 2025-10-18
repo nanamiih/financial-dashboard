@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import re
 from io import StringIO
 
 # Display full DataFrame
@@ -104,15 +105,18 @@ def get_scores(symbol):
     try:
         r = requests.get(base_url, headers=headers, timeout=30)
         r.raise_for_status()
-        tables = pd.read_html(StringIO(r.text))
-        for t in tables:
-            if "Altman Z-Score" in t.to_string():
-                df = t.set_index(t.columns[0])
-                z = df.loc["Altman Z-Score"].values[0]
-                f = df.loc["Piotroski F-Score"].values[0]
-                return z, f
-        return None, None
+        html = r.text
+
+        # 使用正則直接找出分數
+        z_match = re.search(r"Altman Z-Score[^0-9]*([\d.]+)", html)
+        f_match = re.search(r"Piotroski F-Score[^0-9]*([\d.]+)", html)
+
+        z_score = float(z_match.group(1)) if z_match else None
+        f_score = float(f_match.group(1)) if f_match else None
+        return z_score, f_score
+
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
 
