@@ -107,13 +107,18 @@ import pandas as pd
 
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
+
+    if ":" in symbol:
+        exchange, code = symbol.split(":")
+        base_url = f"https://stockanalysis.com/quote/{exchange.lower()}/{code.lower()}/statistics/"
+    else:
+        base_url = f"https://stockanalysis.com/stocks/{symbol.lower()}/statistics/"
+
     try:
         r = requests.get(base_url, headers=headers, timeout=30)
         r.raise_for_status()
         html = r.text
 
-        # 使用正則直接找出分數
         z_match = re.search(r"Altman Z-Score[^0-9]*([\d.]+)", html)
         f_match = re.search(r"Piotroski F-Score[^0-9]*([\d.]+)", html)
 
@@ -124,6 +129,8 @@ def get_scores(symbol):
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
+
 
 
 
