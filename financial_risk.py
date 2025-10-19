@@ -108,6 +108,7 @@ import pandas as pd
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
+    # --- 動態建立網址 ---
     if ":" in symbol:
         exchange, code = symbol.split(":")
         base_url = f"https://stockanalysis.com/quote/{exchange.lower()}/{code.lower()}/statistics/"
@@ -119,16 +120,21 @@ def get_scores(symbol):
         r.raise_for_status()
         html = r.text
 
-        z_match = re.search(r"Altman Z-Score[^0-9]*([\d.]+)", html)
-        f_match = re.search(r"Piotroski F-Score[^0-9]*([\d.]+)", html)
+        # --- 改進 regex，更能容忍不同 HTML 結構 ---
+        z_match = re.search(r"Altman\s*Z-Score.*?(\d+\.\d+)", html, re.IGNORECASE | re.DOTALL)
+        f_match = re.search(r"Piotroski\s*F-Score.*?(\d+)", html, re.IGNORECASE | re.DOTALL)
 
         z_score = float(z_match.group(1)) if z_match else None
-        f_score = float(f_match.group(1)) if f_match else None
+        f_score = int(f_match.group(1)) if f_match else None
+
+        print(f"🔍 [DEBUG] {symbol} → Z={z_score}, F={f_score}")
         return z_score, f_score
 
     except Exception as e:
         print(f"⚠️ Failed to fetch scores for {symbol}: {e}")
         return None, None
+
+
 
 
 
