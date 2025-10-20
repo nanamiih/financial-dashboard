@@ -1,15 +1,15 @@
 import pandas as pd
 import requests
 import re
-import json
 from io import StringIO
 
-# Display full DataFrame
+# -------------------------------------------------------
+# 全域設定
+# -------------------------------------------------------
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
-# Target financial metrics
 TARGET_KEYWORDS = {
     "Debt": "Debt / Equity Ratio",
     "EPS (Diluted)": "Earnings per Share (Diluted)",
@@ -24,7 +24,7 @@ TARGET_KEYWORDS = {
 }
 
 # -------------------------------------------------------
-# Fetch data table from StockAnalysis for a specific company and financial page
+# 抓取網頁表格
 # -------------------------------------------------------
 def fetch_table(symbol, page):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
@@ -57,9 +57,8 @@ def fetch_table(symbol, page):
     print(f"❌ All periods failed for {symbol}.")
     return None, None
 
-
 # -------------------------------------------------------
-# Combine multiple tables and extract target metrics
+# 主函數：整合 + 清理季度
 # -------------------------------------------------------
 def get_company_data(symbol):
     pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
@@ -79,10 +78,7 @@ def get_company_data(symbol):
     print(f"\n📅 Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
 
-    # Debug: check fetched items
-    print("✅ Combined table fetched. Preview of first 50 items:")
-    print(combined.iloc[:, 0].dropna().astype(str).head(50).to_list())
-
+    # 抓出關鍵指標
     selected_rows = pd.DataFrame()
     for keyword, label in TARGET_KEYWORDS.items():
         match = combined[combined.iloc[:, 0].astype(str).str.contains(keyword, case=False, na=False)]
@@ -92,23 +88,60 @@ def get_company_data(symbol):
         else:
             print(f"⚠️ Not found on site: {label}")
 
-    selected_rows = selected_rows.set_index(selected_rows.columns[0]).T
-    print(f"✅ Extracted {len(selected_rows.columns)} metrics.")
-    return selected_rows, detected_period
+    df = selected_rows.set_index(selected_rows.columns[0]).T
+    df.reset_index(inplace=True)
+    df.rename(columns={'index': 'Date'}, inplace=True)
 
+    # ---------------------------------------------------
+    # 🧩 日期處理：只保留季度最後一天，若無季度則年度
+    # ---------------------------------------------------
+    def normalize_quarter(date_str):
+        """
+        將日期文字統一成季度結束日：
+        Q1→Mar 31, Q2→Jun 30, Q3→Sep 30, Q4→Dec 31。
+        若沒有季度字樣則保留年度。
+        """
+        if isinstance(date_str, str):
+            if "Q1" in date_str or "Mar" in date_str:
+                year = re.findall(r"\d{4}", date_str)[-1]
+                return f"Mar 31 {year}"
+            elif "Q2" in date_str or "Jun" in date_str:
+                year = re.findall(r"\d{4}", date_str)[-1]
+                return f"Jun 30 {year}"
+            elif "Q3" in date_str or "Sep" in date_str:
+                year = re.findall(r"\d{4}", date_str)[-1]
+                return f"Sep 30 {year}"
+            elif "Q4" in date_str or "Dec" in date_str:
+                year = re.findall(r"\d{4}", date_str)[-1]
+                return f"Dec 31 {year}"
+            elif re.search(r"\d{4}", date_str):  # 無季度則保留年度
+                return re.findall(r"\d{4}", date_str)[-1]
+        return date_str
+
+    df["Date"] = df["Date"].astype(str).apply(normalize_quarter)
+
+    # ---------------------------------------------------
+    # 📅 僅保留最近 8 季
+    # ---------------------------------------------------
+    def try_parse_date(d):
+        try:
+            return pd.to_datetime(d)
+        except:
+            return pd.NaT
+
+    df["ParsedDate"] = df["Date"].apply(try_parse_date)
+    df = df.sort_values("ParsedDate", ascending=False).head(8)
+    df.drop(columns=["ParsedDate"], inplace=True)
+
+    print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 quarters.")
+    return df, detected_period
 
 # -------------------------------------------------------
-# Extra: fetch Altman Z-Score and Piotroski F-Score
+# 抓取 Z-score / F-score
 # -------------------------------------------------------
-import re
-import requests
-from io import StringIO
-import pandas as pd
-
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
-    # --- 動態建立網址 ---
     if ":" in symbol:
         exchange, code = symbol.split(":")
         base_url = f"https://stockanalysis.com/quote/{exchange.lower()}/{code.lower()}/statistics/"
@@ -120,7 +153,6 @@ def get_scores(symbol):
         r.raise_for_status()
         html = r.text
 
-        # --- 改進 regex，更能容忍不同 HTML 結構 ---
         z_match = re.search(r"Altman\s*Z-Score.*?(\d+\.\d+)", html, re.IGNORECASE | re.DOTALL)
         f_match = re.search(r"Piotroski\s*F-Score.*?(\d+)", html, re.IGNORECASE | re.DOTALL)
 
@@ -135,9 +167,13 @@ def get_scores(symbol):
         return None, None
 
 
+# -------------------------------------------------------
+# 🚀 測試範例
+# -------------------------------------------------------
+if __name__ == "__main__":
+    symbol = "OSL:NHY"   # 可改成任何股票代號
+    df, freq = get_company_data(symbol)
+    print(df)
 
-
-
-
-
-
+    z, f = get_scores(symbol)
+    print(f"\nZ-Score: {z}, F-Score: {f}")
