@@ -3,6 +3,9 @@ import requests
 import re
 from io import StringIO
 
+# -------------------------------------------------------
+# 全域設定
+# -------------------------------------------------------
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
@@ -20,7 +23,9 @@ TARGET_KEYWORDS = {
     "Net Income": "Net Income (Millions)"
 }
 
-
+# -------------------------------------------------------
+# 抓取 StockAnalysis 表格
+# -------------------------------------------------------
 def fetch_table(symbol, page):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
@@ -53,6 +58,9 @@ def fetch_table(symbol, page):
     return None, None
 
 
+# -------------------------------------------------------
+# 主函數：整合 + 清理季度
+# -------------------------------------------------------
 def get_company_data(symbol):
     pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
     dfs, detected_period = [], None
@@ -71,6 +79,7 @@ def get_company_data(symbol):
     print(f"\n📅 Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
 
+    # 抓出目標指標
     selected_rows = pd.DataFrame()
     for keyword, label in TARGET_KEYWORDS.items():
         match = combined[combined.iloc[:, 0].astype(str).str.contains(keyword, case=False, na=False)]
@@ -82,14 +91,25 @@ def get_company_data(symbol):
 
     df = selected_rows.set_index(selected_rows.columns[0]).T
     df.reset_index(inplace=True)
-    df.rename(columns={'index': 'Date'}, inplace=True)
 
     # ---------------------------------------------------
-    # 🧩 日期清理：只取最後一個日期（避免重複）
+    # 🧩 防呆：確保有 Date 欄
+    # ---------------------------------------------------
+    if 'index' in df.columns:
+        df.rename(columns={'index': 'Date'}, inplace=True)
+    else:
+        print("⚠️ Warning: No 'index' column found, creating placeholder.")
+        df.insert(0, 'Date', [f"Q{i+1}" for i in range(len(df))])
+
+    if "Date" not in df.columns:
+        print("⚠️ Warning: No 'Date' column found, creating placeholder.")
+        df["Date"] = [f"Q{i+1}" for i in range(len(df))]
+
+    # ---------------------------------------------------
+    # 🧩 日期清理：只保留最後一個日期
     # ---------------------------------------------------
     def extract_last_date(text):
         if isinstance(text, str):
-            # 抓出最後一個 "Mon DD, YYYY" 的日期格式
             match = re.findall(r"[A-Za-z]{3}\s\d{1,2},\s\d{4}", text)
             if match:
                 return match[-1]
@@ -114,12 +134,14 @@ def get_company_data(symbol):
             elif "Dec" in date_str:
                 year = re.findall(r"\d{4}", date_str)[-1]
                 return f"Dec 31 {year}"
+            elif re.search(r"\d{4}", date_str):
+                return re.findall(r"\d{4}", date_str)[-1]
         return date_str
 
     df["Date"] = df["Date"].apply(normalize_quarter)
 
     # ---------------------------------------------------
-    # 📅 只保留最近 8 季
+    # 📅 僅保留最近 8 季
     # ---------------------------------------------------
     def try_parse_date(d):
         try:
@@ -135,6 +157,9 @@ def get_company_data(symbol):
     return df, detected_period
 
 
+# -------------------------------------------------------
+# 抓取 Z-score / F-score
+# -------------------------------------------------------
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
@@ -163,9 +188,11 @@ def get_scores(symbol):
         return None, None
 
 
+# -------------------------------------------------------
 # 🚀 測試範例
+# -------------------------------------------------------
 if __name__ == "__main__":
-    symbol = "OSL:NHY"  # 例：挪威Hydro
+    symbol = "OSL:NHY"   # 例：挪威 Hydro
     df, freq = get_company_data(symbol)
     print(df)
 
