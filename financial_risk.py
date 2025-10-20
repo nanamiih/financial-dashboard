@@ -64,6 +64,8 @@ def fetch_table(symbol, page):
 # 主函數：整合 + 清理季度 + 插入今日日期
 # -------------------------------------------------------
 def get_company_data(symbol):
+    import datetime
+
     pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
     dfs, detected_period = [], None
 
@@ -94,12 +96,15 @@ def get_company_data(symbol):
     df = selected_rows.set_index(selected_rows.columns[0]).T
     df.reset_index(inplace=True)
 
-    # ---- 日期欄修正 ----
+    # ---- 移除多餘的 level_0 / index 欄 ----
+    for col in ["level_0", "index"]:
+        if col in df.columns:
+            df.drop(columns=[col], inplace=True)
+
+    # ---- 清理日期欄 ----
     if "level_1" in df.columns:
         df.rename(columns={"level_1": "Date"}, inplace=True)
-    elif "index" in df.columns:
-        df.rename(columns={"index": "Date"}, inplace=True)
-    else:
+    elif "Date" not in df.columns:
         df.insert(0, "Date", [f"Q{i+1}" for i in range(len(df))])
 
     # ---- 只取最後的日期 ----
@@ -133,27 +138,24 @@ def get_company_data(symbol):
 
     df["Date"] = df["Date"].apply(normalize_quarter)
 
-    # ---- 排序 & 清理重複季度 ----
-    def try_parse_date(d):
-        try:
-            return pd.to_datetime(d)
-        except:
-            return pd.NaT
-
-    df["ParsedDate"] = df["Date"].apply(try_parse_date)
+    # ---- 排序季度 ----
+    df["ParsedDate"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.dropna(subset=["ParsedDate"])
     df = df.drop_duplicates(subset=["ParsedDate"])
     df = df.sort_values("ParsedDate", ascending=False).head(7)
     df.drop(columns=["ParsedDate"], inplace=True)
 
-    # ---- 最上方插入今日日期 ----
+    # ---- 插入今天日期作為最新一筆 ----
     today = datetime.datetime.today().strftime("%b %d %Y")
-    today_row = pd.DataFrame({"Date": [today]}, index=[0])
+    today_row = pd.DataFrame({"Date": [today]})
     df = pd.concat([today_row, df], ignore_index=True)
 
-    print(f"✅ Added today's date ({today}) as the latest period.")
-    print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 periods.")
+    # ---- 重設索引 ----
+    df = df.reset_index(drop=True)
+
+    print(f"✅ Cleaned date column. Added today's date ({today}) as latest record.")
     return df, detected_period
+
 
 
 # -------------------------------------------------------
@@ -202,3 +204,4 @@ if __name__ == "__main__":
     filename = f"financial_data_{symbol.replace(':','_')}.csv"
     df.to_csv(filename, index=False)
     print(f"📁 Saved cleaned financial data → {filename}")
+
