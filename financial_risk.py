@@ -2,7 +2,11 @@ import pandas as pd
 import requests
 import re
 from io import StringIO
+import datetime
 
+# -------------------------------------------------------
+# 全域設定
+# -------------------------------------------------------
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
@@ -22,7 +26,7 @@ TARGET_KEYWORDS = {
 
 
 # -------------------------------------------------------
-# 抓取 StockAnalysis 表格
+# 抓取 StockAnalysis 財報表格
 # -------------------------------------------------------
 def fetch_table(symbol, page):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
@@ -57,7 +61,7 @@ def fetch_table(symbol, page):
 
 
 # -------------------------------------------------------
-# 主函數：整合 + 清理季度
+# 主函數：整合 + 清理季度 + 插入今日日期
 # -------------------------------------------------------
 def get_company_data(symbol):
     pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
@@ -77,7 +81,7 @@ def get_company_data(symbol):
     print(f"\n📅 Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
 
-    # 抓出目標指標
+    # ---- 抓出目標指標 ----
     selected_rows = pd.DataFrame()
     for keyword, label in TARGET_KEYWORDS.items():
         match = combined[combined.iloc[:, 0].astype(str).str.contains(keyword, case=False, na=False)]
@@ -90,24 +94,15 @@ def get_company_data(symbol):
     df = selected_rows.set_index(selected_rows.columns[0]).T
     df.reset_index(inplace=True)
 
-    # ---------------------------------------------------
-    # 🧩 修正：偵測 multi-index 結構
-    # ---------------------------------------------------
+    # ---- 日期欄修正 ----
     if "level_1" in df.columns:
-        print("🔧 Detected multi-index structure. Flattening date column...")
         df.rename(columns={"level_1": "Date"}, inplace=True)
     elif "index" in df.columns:
         df.rename(columns={"index": "Date"}, inplace=True)
     else:
-        print("⚠️ Warning: No valid date column found, creating placeholder.")
         df.insert(0, "Date", [f"Q{i+1}" for i in range(len(df))])
 
-    # 移除不需要的欄位（例如 level_0）
-    df = df[[c for c in df.columns if c != "level_0"]]
-
-    # ---------------------------------------------------
-    # 🧩 日期清理：只保留最後一個日期
-    # ---------------------------------------------------
+    # ---- 只取最後的日期 ----
     def extract_last_date(text):
         if isinstance(text, str):
             match = re.findall(r"[A-Za-z]{3}\s\d{1,2},\s\d{4}", text)
@@ -117,9 +112,7 @@ def get_company_data(symbol):
 
     df["Date"] = df["Date"].astype(str).apply(extract_last_date)
 
-    # ---------------------------------------------------
-    # 🧩 統一季度結束日
-    # ---------------------------------------------------
+    # ---- 統一季度結束日期 ----
     def normalize_quarter(date_str):
         if isinstance(date_str, str):
             if "Mar" in date_str:
@@ -140,9 +133,7 @@ def get_company_data(symbol):
 
     df["Date"] = df["Date"].apply(normalize_quarter)
 
-    # ---------------------------------------------------
-    # 📅 僅保留最近 8 季
-    # ---------------------------------------------------
+    # ---- 排序 & 清理重複季度 ----
     def try_parse_date(d):
         try:
             return pd.to_datetime(d)
@@ -150,19 +141,20 @@ def get_company_data(symbol):
             return pd.NaT
 
     df["ParsedDate"] = df["Date"].apply(try_parse_date)
-    df = df.sort_values("ParsedDate", ascending=False).head(8)
+    df = df.dropna(subset=["ParsedDate"])
+    df = df.drop_duplicates(subset=["ParsedDate"])
+    df = df.sort_values("ParsedDate", ascending=False).head(7)
     df.drop(columns=["ParsedDate"], inplace=True)
 
-    # ---------------------------------------------------
-    # 🧩 把最新一期改成今天日期
-    # ---------------------------------------------------
-    if not df.empty:
-        today = pd.Timestamp.today().strftime("%b %d %Y")
-        df.loc[df.index[0], "Date"] = today
-        print(f"🕓 Replaced most recent period with today’s date → {today}")
+    # ---- 最上方插入今日日期 ----
+    today = datetime.datetime.today().strftime("%b %d %Y")
+    today_row = pd.DataFrame({"Date": [today]}, index=[0])
+    df = pd.concat([today_row, df], ignore_index=True)
 
-    print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 quarters.")
+    print(f"✅ Added today's date ({today}) as the latest period.")
+    print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 periods.")
     return df, detected_period
+
 
 # -------------------------------------------------------
 # 抓取 Z-score / F-score
@@ -196,13 +188,17 @@ def get_scores(symbol):
 
 
 # -------------------------------------------------------
-# 🚀 測試
+# 🚀 測試 (本地執行)
 # -------------------------------------------------------
 if __name__ == "__main__":
-    symbol = "OSL:NHY"
+    symbol = "OSL:NHY"  # 可換成 AA, RIO, TSLA, etc.
     df, freq = get_company_data(symbol)
     print(df)
 
     z, f = get_scores(symbol)
     print(f"\nZ-Score: {z}, F-Score: {f}")
 
+    # ✅ 可選：自動輸出為 CSV，方便 Power BI 匯入
+    filename = f"financial_data_{symbol.replace(':','_')}.csv"
+    df.to_csv(filename, index=False)
+    print(f"📁 Saved cleaned financial data → {filename}")
