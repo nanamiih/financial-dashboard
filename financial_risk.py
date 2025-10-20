@@ -153,9 +153,16 @@ def get_company_data(symbol):
     df = df.sort_values("ParsedDate", ascending=False).head(8)
     df.drop(columns=["ParsedDate"], inplace=True)
 
+    # ---------------------------------------------------
+    # 🧩 把最新一期改成今天日期
+    # ---------------------------------------------------
+    if not df.empty:
+        today = pd.Timestamp.today().strftime("%b %d %Y")
+        df.loc[df.index[0], "Date"] = today
+        print(f"🕓 Replaced most recent period with today’s date → {today}")
+
     print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 quarters.")
     return df, detected_period
-
 
 # -------------------------------------------------------
 # 抓取 Z-score / F-score
@@ -198,3 +205,4 @@ if __name__ == "__main__":
 
     z, f = get_scores(symbol)
     print(f"\nZ-Score: {z}, F-Score: {f}")
+
