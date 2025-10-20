@@ -3,9 +3,6 @@ import requests
 import re
 from io import StringIO
 
-# -------------------------------------------------------
-# 全域設定
-# -------------------------------------------------------
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
@@ -23,9 +20,7 @@ TARGET_KEYWORDS = {
     "Net Income": "Net Income (Millions)"
 }
 
-# -------------------------------------------------------
-# 抓取網頁表格
-# -------------------------------------------------------
+
 def fetch_table(symbol, page):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
@@ -57,9 +52,7 @@ def fetch_table(symbol, page):
     print(f"❌ All periods failed for {symbol}.")
     return None, None
 
-# -------------------------------------------------------
-# 主函數：整合 + 清理季度
-# -------------------------------------------------------
+
 def get_company_data(symbol):
     pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
     dfs, detected_period = [], None
@@ -78,7 +71,6 @@ def get_company_data(symbol):
     print(f"\n📅 Reporting frequency used: {detected_period.upper()}")
     combined = pd.concat(dfs, ignore_index=True)
 
-    # 抓出關鍵指標
     selected_rows = pd.DataFrame()
     for keyword, label in TARGET_KEYWORDS.items():
         match = combined[combined.iloc[:, 0].astype(str).str.contains(keyword, case=False, na=False)]
@@ -93,35 +85,41 @@ def get_company_data(symbol):
     df.rename(columns={'index': 'Date'}, inplace=True)
 
     # ---------------------------------------------------
-    # 🧩 日期處理：只保留季度最後一天，若無季度則年度
+    # 🧩 日期清理：只取最後一個日期（避免重複）
+    # ---------------------------------------------------
+    def extract_last_date(text):
+        if isinstance(text, str):
+            # 抓出最後一個 "Mon DD, YYYY" 的日期格式
+            match = re.findall(r"[A-Za-z]{3}\s\d{1,2},\s\d{4}", text)
+            if match:
+                return match[-1]
+        return text
+
+    df["Date"] = df["Date"].astype(str).apply(extract_last_date)
+
+    # ---------------------------------------------------
+    # 🧩 統一季度結束日
     # ---------------------------------------------------
     def normalize_quarter(date_str):
-        """
-        將日期文字統一成季度結束日：
-        Q1→Mar 31, Q2→Jun 30, Q3→Sep 30, Q4→Dec 31。
-        若沒有季度字樣則保留年度。
-        """
         if isinstance(date_str, str):
-            if "Q1" in date_str or "Mar" in date_str:
+            if "Mar" in date_str:
                 year = re.findall(r"\d{4}", date_str)[-1]
                 return f"Mar 31 {year}"
-            elif "Q2" in date_str or "Jun" in date_str:
+            elif "Jun" in date_str:
                 year = re.findall(r"\d{4}", date_str)[-1]
                 return f"Jun 30 {year}"
-            elif "Q3" in date_str or "Sep" in date_str:
+            elif "Sep" in date_str:
                 year = re.findall(r"\d{4}", date_str)[-1]
                 return f"Sep 30 {year}"
-            elif "Q4" in date_str or "Dec" in date_str:
+            elif "Dec" in date_str:
                 year = re.findall(r"\d{4}", date_str)[-1]
                 return f"Dec 31 {year}"
-            elif re.search(r"\d{4}", date_str):  # 無季度則保留年度
-                return re.findall(r"\d{4}", date_str)[-1]
         return date_str
 
-    df["Date"] = df["Date"].astype(str).apply(normalize_quarter)
+    df["Date"] = df["Date"].apply(normalize_quarter)
 
     # ---------------------------------------------------
-    # 📅 僅保留最近 8 季
+    # 📅 只保留最近 8 季
     # ---------------------------------------------------
     def try_parse_date(d):
         try:
@@ -136,9 +134,7 @@ def get_company_data(symbol):
     print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 quarters.")
     return df, detected_period
 
-# -------------------------------------------------------
-# 抓取 Z-score / F-score
-# -------------------------------------------------------
+
 def get_scores(symbol):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
@@ -167,11 +163,9 @@ def get_scores(symbol):
         return None, None
 
 
-# -------------------------------------------------------
 # 🚀 測試範例
-# -------------------------------------------------------
 if __name__ == "__main__":
-    symbol = "OSL:NHY"   # 可改成任何股票代號
+    symbol = "OSL:NHY"  # 例：挪威Hydro
     df, freq = get_company_data(symbol)
     print(df)
 
