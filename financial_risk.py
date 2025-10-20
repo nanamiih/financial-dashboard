@@ -3,9 +3,6 @@ import requests
 import re
 from io import StringIO
 
-# -------------------------------------------------------
-# 全域設定
-# -------------------------------------------------------
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
@@ -22,6 +19,7 @@ TARGET_KEYWORDS = {
     "Free Cash Flow": "Free Cash Flow (Millions)",
     "Net Income": "Net Income (Millions)"
 }
+
 
 # -------------------------------------------------------
 # 抓取 StockAnalysis 表格
@@ -93,17 +91,19 @@ def get_company_data(symbol):
     df.reset_index(inplace=True)
 
     # ---------------------------------------------------
-    # 🧩 防呆：確保有 Date 欄
+    # 🧩 修正：偵測 multi-index 結構
     # ---------------------------------------------------
-    if 'index' in df.columns:
-        df.rename(columns={'index': 'Date'}, inplace=True)
+    if "level_1" in df.columns:
+        print("🔧 Detected multi-index structure. Flattening date column...")
+        df.rename(columns={"level_1": "Date"}, inplace=True)
+    elif "index" in df.columns:
+        df.rename(columns={"index": "Date"}, inplace=True)
     else:
-        print("⚠️ Warning: No 'index' column found, creating placeholder.")
-        df.insert(0, 'Date', [f"Q{i+1}" for i in range(len(df))])
+        print("⚠️ Warning: No valid date column found, creating placeholder.")
+        df.insert(0, "Date", [f"Q{i+1}" for i in range(len(df))])
 
-    if "Date" not in df.columns:
-        print("⚠️ Warning: No 'Date' column found, creating placeholder.")
-        df["Date"] = [f"Q{i+1}" for i in range(len(df))]
+    # 移除不需要的欄位（例如 level_0）
+    df = df[[c for c in df.columns if c != "level_0"]]
 
     # ---------------------------------------------------
     # 🧩 日期清理：只保留最後一個日期
@@ -189,10 +189,10 @@ def get_scores(symbol):
 
 
 # -------------------------------------------------------
-# 🚀 測試範例
+# 🚀 測試
 # -------------------------------------------------------
 if __name__ == "__main__":
-    symbol = "OSL:NHY"   # 例：挪威 Hydro
+    symbol = "OSL:NHY"
     df, freq = get_company_data(symbol)
     print(df)
 
