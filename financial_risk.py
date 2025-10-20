@@ -4,12 +4,9 @@ import re
 from io import StringIO
 import datetime
 
-# -------------------------------------------------------
-# 全域設定
-# -------------------------------------------------------
-pd.set_option('display.max_columns', None)
-pd.set_option('display.width', None)
-pd.set_option('display.max_colwidth', None)
+pd.set_option("display.max_columns", None)
+pd.set_option("display.width", None)
+pd.set_option("display.max_colwidth", None)
 
 TARGET_KEYWORDS = {
     "Debt": "Debt / Equity Ratio",
@@ -26,7 +23,7 @@ TARGET_KEYWORDS = {
 
 
 # -------------------------------------------------------
-# 抓取 StockAnalysis 財報表格
+# 抓取財報表格
 # -------------------------------------------------------
 def fetch_table(symbol, page):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
@@ -55,13 +52,11 @@ def fetch_table(symbol, page):
 
     if collected:
         return pd.concat(collected, ignore_index=True), first_period
-
-    print(f"❌ All periods failed for {symbol}.")
     return None, None
 
 
 # -------------------------------------------------------
-# 主函數：整合 + 清理季度 + 插入今日日期
+# 主函數：整理成第一張圖那樣的格式
 # -------------------------------------------------------
 def get_company_data(symbol):
     pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
@@ -102,7 +97,7 @@ def get_company_data(symbol):
     else:
         df.insert(0, "Date", [f"Q{i+1}" for i in range(len(df))])
 
-    # ---- 只取最後的日期 ----
+    # ---- 抽出最後日期 ----
     def extract_last_date(text):
         if isinstance(text, str):
             match = re.findall(r"[A-Za-z]{3}\s\d{1,2},\s\d{4}", text)
@@ -133,27 +128,29 @@ def get_company_data(symbol):
 
     df["Date"] = df["Date"].apply(normalize_quarter)
 
-    # ---- 排序 & 清理重複季度 ----
-    def try_parse_date(d):
-        try:
-            return pd.to_datetime(d)
-        except:
-            return pd.NaT
-
-    df["ParsedDate"] = df["Date"].apply(try_parse_date)
+    # ---- 排序季度 ----
+    df["ParsedDate"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.dropna(subset=["ParsedDate"])
     df = df.drop_duplicates(subset=["ParsedDate"])
     df = df.sort_values("ParsedDate", ascending=False).head(7)
     df.drop(columns=["ParsedDate"], inplace=True)
 
-    # ---- 最上方插入今日日期 ----
+    # ---- 插入今天日期當 Current ----
     today = datetime.datetime.today().strftime("%b %d %Y")
-    today_row = pd.DataFrame({"Date": [today]}, index=[0])
-    df = pd.concat([today_row, df], ignore_index=True)
+    today_col = pd.DataFrame({"Date": [today]}, index=[0])
+    df = pd.concat([today_col, df], ignore_index=True)
 
-    print(f"✅ Added today's date ({today}) as the latest period.")
-    print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 periods.")
-    return df, detected_period
+    # ---- 建立欄位名稱 (Current, Q2 2025, ...) ----
+    periods = ["Current", "Q2 2025", "Q1 2025", "Q4 2024", "Q3 2024", "Q2 2024", "Q1 2024"]
+    df["Period"] = periods[: len(df)]
+
+    # ---- Pivot成橫向結構 ----
+    df_final = df.set_index("Period").T
+    df_final.reset_index(inplace=True)
+    df_final.rename(columns={"index": "Metric"}, inplace=True)
+
+    print(f"✅ Formatted table in wide layout with metrics vertical and periods horizontal.")
+    return df_final, detected_period
 
 
 # -------------------------------------------------------
@@ -188,17 +185,16 @@ def get_scores(symbol):
 
 
 # -------------------------------------------------------
-# 🚀 測試 (本地執行)
+# 🚀 測試
 # -------------------------------------------------------
 if __name__ == "__main__":
-    symbol = "OSL:NHY"  # 可換成 AA, RIO, TSLA, etc.
+    symbol = "OSL:NHY"
     df, freq = get_company_data(symbol)
     print(df)
 
     z, f = get_scores(symbol)
     print(f"\nZ-Score: {z}, F-Score: {f}")
 
-    # ✅ 可選：自動輸出為 CSV，方便 Power BI 匯入
-    filename = f"financial_data_{symbol.replace(':','_')}.csv"
+    filename = f"financial_table_{symbol.replace(':','_')}.csv"
     df.to_csv(filename, index=False)
-    print(f"📁 Saved cleaned financial data → {filename}")
+    print(f"📁 Saved: {filename}")
