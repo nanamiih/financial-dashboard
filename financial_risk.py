@@ -113,23 +113,39 @@ def get_company_data(symbol):
     df["Date"] = df["Date"].astype(str).apply(extract_last_date)
 
     # ---- 統一季度結束日期 ----
-    def normalize_quarter(date_str):
-        if isinstance(date_str, str):
-            if "Mar" in date_str:
-                year = re.findall(r"\d{4}", date_str)[-1]
+        def normalize_quarter(date_str):
+        if not isinstance(date_str, str):
+            return date_str
+
+        # --- Q1~Q4 處理 ---
+        q_match = re.match(r"Q([1-4])\s*(\d{4})", date_str)
+        if q_match:
+            q, year = q_match.groups()
+            if q == "1":
                 return f"Mar 31 {year}"
-            elif "Jun" in date_str:
-                year = re.findall(r"\d{4}", date_str)[-1]
+            elif q == "2":
                 return f"Jun 30 {year}"
-            elif "Sep" in date_str:
-                year = re.findall(r"\d{4}", date_str)[-1]
+            elif q == "3":
                 return f"Sep 30 {year}"
-            elif "Dec" in date_str:
-                year = re.findall(r"\d{4}", date_str)[-1]
+            elif q == "4":
                 return f"Dec 31 {year}"
-            elif re.search(r"\d{4}", date_str):
-                return re.findall(r"\d{4}", date_str)[-1]
+
+        # --- 月份英文處理 ---
+        if "Mar" in date_str:
+            year = re.findall(r"\d{4}", date_str)[-1]
+            return f"Mar 31 {year}"
+        elif "Jun" in date_str:
+            year = re.findall(r"\d{4}", date_str)[-1]
+            return f"Jun 30 {year}"
+        elif "Sep" in date_str:
+            year = re.findall(r"\d{4}", date_str)[-1]
+            return f"Sep 30 {year}"
+        elif "Dec" in date_str:
+            year = re.findall(r"\d{4}", date_str)[-1]
+            return f"Dec 31 {year}"
+
         return date_str
+
 
     df["Date"] = df["Date"].apply(normalize_quarter)
 
@@ -217,4 +233,5 @@ if __name__ == "__main__":
     filename = f"financial_data_{symbol.replace(':','_')}.csv"
     df.to_csv(filename, index=False)
     print(f"📁 Saved cleaned financial data → {filename}")
+
 
