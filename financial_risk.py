@@ -146,14 +146,29 @@ def get_company_data(symbol):
     df = df.sort_values("ParsedDate", ascending=False).head(7)
     df.drop(columns=["ParsedDate"], inplace=True)
 
-    # ---- 最上方插入今日日期 ----
-    today = datetime.datetime.today().strftime("%b %d %Y")
-    today_row = pd.DataFrame({"Date": [today]}, index=[0])
-    df = pd.concat([today_row, df], ignore_index=True)
+    # ---- 清理 level_0 欄位（若存在） ----
+    if "level_0" in df.columns:
+        df = df.drop(columns=["level_0"])
 
-    print(f"✅ Added today's date ({today}) as the latest period.")
-    print(f"✅ Extracted {len(df.columns)-1} metrics and kept last 8 periods.")
+    # ---- 統一日期格式（全部顯示完整月日年）----
+    def format_date(date_str):
+        try:
+            parsed = pd.to_datetime(date_str, errors="coerce")
+            if pd.notna(parsed):
+                return parsed.strftime("%b %d %Y")
+            return date_str
+        except:
+            return date_str
+
+    df["Date"] = df["Date"].astype(str).apply(format_date)
+
+    # ---- 移除最新日期（原本插入的今日日期）----
+    df = df.iloc[1:].reset_index(drop=True)
+
+    print(f"✅ Cleaned dataframe: removed latest date, formatted all dates.")
+    print(f"✅ Extracted {len(df.columns)-1} metrics and kept last {len(df)} periods.")
     return df, detected_period
+
 
 
 # -------------------------------------------------------
@@ -202,3 +217,4 @@ if __name__ == "__main__":
     filename = f"financial_data_{symbol.replace(':','_')}.csv"
     df.to_csv(filename, index=False)
     print(f"📁 Saved cleaned financial data → {filename}")
+
