@@ -61,7 +61,7 @@ def fetch_table(symbol, page):
 
 
 # -------------------------------------------------------
-# 主函數：整合 + 清理季度 + 插入今日日期
+# 主函數：整合 + 清理季度
 # -------------------------------------------------------
 def get_company_data(symbol):
     pages = ["ratios", "cash-flow-statement", "balance-sheet", "income-statement", "statistics", ""]
@@ -113,7 +113,7 @@ def get_company_data(symbol):
     df["Date"] = df["Date"].astype(str).apply(extract_last_date)
 
     # ---- 統一季度結束日期 ----
-        def normalize_quarter(date_str):
+    def normalize_quarter(date_str):
         if not isinstance(date_str, str):
             return date_str
 
@@ -146,7 +146,6 @@ def get_company_data(symbol):
 
         return date_str
 
-
     df["Date"] = df["Date"].apply(normalize_quarter)
 
     # ---- 排序 & 清理重複季度 ----
@@ -159,7 +158,7 @@ def get_company_data(symbol):
     df["ParsedDate"] = df["Date"].apply(try_parse_date)
     df = df.dropna(subset=["ParsedDate"])
     df = df.drop_duplicates(subset=["ParsedDate"])
-    df = df.sort_values("ParsedDate", ascending=False).head(7)
+    df = df.sort_values("ParsedDate", ascending=False).head(8)
     df.drop(columns=["ParsedDate"], inplace=True)
 
     # ---- 清理 level_0 欄位（若存在） ----
@@ -178,13 +177,9 @@ def get_company_data(symbol):
 
     df["Date"] = df["Date"].astype(str).apply(format_date)
 
-    # ---- 移除最新日期（原本插入的今日日期）----
-    df = df.iloc[1:].reset_index(drop=True)
-
-    print(f"✅ Cleaned dataframe: removed latest date, formatted all dates.")
+    print(f"✅ Cleaned dataframe: formatted all dates, removed duplicates.")
     print(f"✅ Extracted {len(df.columns)-1} metrics and kept last {len(df)} periods.")
     return df, detected_period
-
 
 
 # -------------------------------------------------------
@@ -233,5 +228,3 @@ if __name__ == "__main__":
     filename = f"financial_data_{symbol.replace(':','_')}.csv"
     df.to_csv(filename, index=False)
     print(f"📁 Saved cleaned financial data → {filename}")
-
-
